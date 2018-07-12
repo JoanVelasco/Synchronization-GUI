@@ -1,4 +1,4 @@
-import tkinter as tk
+from tkinter import *
 
 def connect():
 	print("connected")
@@ -7,14 +7,27 @@ def disconnect():
 	print("disconnected")
 
 
-root = tk.Tk()
+root = Tk()
 root.title("Synchronization GUI")
-frame = tk.Frame(root).pack()
+frame = Frame(root, bg = "red")
+frame.pack( fill = BOTH, expand = 1)
+frame2 = Frame(root, bg = "green")
+frame2.pack( fill = BOTH, expand = 1)
 
 #Add things to GUI some more
-w = tk.Label(root, text="Synchronization Data").pack()
-exitBut = tk.Button(frame, text = "Exit", command = quit).pack(side = tk.RIGHT)
-connectBut = tk.Button(frame, text = "Connect", command = connect).pack(side = tk.LEFT)
-DisconnectBut = tk.Button(frame, text = "Disconnect", command = disconnect).pack(side = tk.LEFT)
+w = Label(frame, text="Synchronization Data")
+w.pack(side = TOP)
 
+exitBut = Button(frame2, text = "Exit", command = root.destroy)
+exitBut.pack(side = RIGHT)
+
+connectBut = Button(frame2, text = "Connect", command = connect)
+connectBut.pack(side = LEFT)
+
+DisconnectBut = Button(frame2, text = "Disconnect", command = disconnect)
+DisconnectBut.pack(side = LEFT)
+
+
+
+root.geometry("800x500+20+25")
 root.mainloop()
