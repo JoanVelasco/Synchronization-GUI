@@ -3,12 +3,16 @@ from tkinter import font
 
 def connect():
 	print("connected")
+	TextArea.insert(END, "Connected\n")
 
 def disconnect():
 	print("disconnected")
+	TextArea.insert(END, "Disconnected\n")
 
 def clearTextArea():
 	print("Text are cleared")
+	TextArea.delete('1.0', END)
+
 
 
 
@@ -39,9 +43,10 @@ connectBut = Button(buttonsFrame, text = "Connect", command = connect).pack(side
 disconnectBut = Button(buttonsFrame, text = "Disconnect", command = disconnect).pack(side = LEFT, ipadx = 20, padx = 30)
 clearBut = Button(optButFrame, text = "Clear", command = clearTextArea).pack(side = RIGHT, ipadx = 20)
 
+
 #Text area and scrollbar
 Scroll = Scrollbar(mainFrame)
-TextArea = Text(mainFrame, height=4) #heigth not releveant, for in pack it is said to occupy all the space, however if its not set the buttons below experience some problems
+TextArea = Text(mainFrame, height = 4) #heigth not releveant, for in pack it is said to occupy all the space, however if its not set the buttons below experience some problems
 Scroll.pack(side=RIGHT, fill=Y)
 TextArea.pack(side=LEFT, fill=BOTH)
 Scroll.config(command=TextArea.yview)
