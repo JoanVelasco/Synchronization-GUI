@@ -1,17 +1,50 @@
 from tkinter import *
 from tkinter import font
+import serial
+import threading
+
+conn = None
+
+class connection(object):
+	def __init__(self, connected = False, port = 'COM', baud = 9600, serPort = None):
+		self.connected = connected
+		self.port = port #define the port
+		self.baud = baud #define bit rate
+		self.serPort = serPort
 
 def connect():
+	global conn 
+	conn = connection()
+	conn.connected = True
+	conn.serPort = serial.Serial(conn.port, conn.baud, timeout = 0)
+	readThread = threading.Thread(target = readPort)
 	print("connected")
 	TextArea.insert(END, "Connected\n")
+	readThread.start()
 
 def disconnect():
+	global conn
+	conn.connected = False
+	readThread.join()
+	conn = None
 	print("disconnected")
 	TextArea.insert(END, "Disconnected\n")
 
 def clearTextArea():
 	print("Text are cleared")
 	TextArea.delete('1.0', END)
+
+def handleData(data):
+	print("handling data")
+	TextArea.insert(END, "Disconnected\n")
+
+
+def readPort():
+	global conn
+	while conn.connected:
+		data = conn.serPort.readline() #maybe add ".decode()" look up what is it for
+		handleData(data)
+	conn.serPort.close()
 
 
 
