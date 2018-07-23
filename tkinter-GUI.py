@@ -19,7 +19,7 @@ def connect():
 	global readThread
 	conn = connection()
 	conn.connected = True
-	conn.serPort = serial.Serial(conn.port, conn.baud, timeout = 0)
+	conn.serPort = serial.Serial(conn.port, conn.baud, timeout = None, bytesize = serial.EIGHTBITS, parity = serial.PARITY_NONE, stopbits = serial.STOPBITS_ONE, xonxoff = False, rtscts = False, dsrdtr = False)
 	InitLaunchpad()
 	readThread = threading.Thread(target = readPort)
 	print("connected")
@@ -40,41 +40,50 @@ def clearTextArea():
 	TextArea.delete('1.0', END)
 
 def scan():
-	conn.serPort.write('\x01\x04\xFE\x03\x03\x01\x00'.encode())
-	time.sleep(0.2)
+	#InitLaunchpad()
+	conn.serPort.write(b'\x01\x04\xFE\x03\x03\x01\x00')
 	print("Scanning")
+	time.sleep(2)
 
 def connectStk():
 	print("Connecting to Sensor Tag")
 
 
 def InitLaunchpad():
-	conn.serPort.write('\x01\x03\x0C\x00'.encode())
+	conn.serPort.write(b'\x01\x03\x0C\x00')
+	while conn.serPort.in_waiting <= 0: pass
+	handleData(conn.serPort.read(conn.serPort.in_waiting))
+	#time.sleep(0.2)
+	conn.serPort.write(b'\x01\x00\xfe\x26\x08\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00')
+	while conn.serPort.in_waiting <= 0: pass
+	handleData(conn.serPort.read(conn.serPort.in_waiting))
+	while conn.serPort.in_waiting <= 0: pass
+	#time.sleep(0.2)
+	handleData(conn.serPort.read(conn.serPort.in_waiting))
+	#time.sleep(0.2)
+	conn.serPort.write(b'\x01\x31\xFE\x01\x15')
 	time.sleep(0.2)
-	conn.serPort.write('\x01\x00\xFE\x26\x08\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00'.encode())
+	conn.serPort.write(b'\x01\x31\xFE\x01\x16')
 	time.sleep(0.2)
-	conn.serPort.write('\x01\x31\xFE\x01\x15'.encode())
+	conn.serPort.write(b'\x01\x31\xFE\x01\x1A')
 	time.sleep(0.2)
-	conn.serPort.write('\x01\x31\xFE\x01\x16'.encode())
-	time.sleep(0.2)
-	conn.serPort.write('\x01\x31\xFE\x01\x1A'.encode())
-	time.sleep(0.2)
-	conn.serPort.write('\x01\x31\xFE\x01\x19'.encode())
+	conn.serPort.write(b'\x01\x31\xFE\x01\x19')
 	time.sleep(0.2)
 
 #Thread functions
 def handleData(data):
 	print("handling data")
-	TextArea.insert(END, data.decode("utf-8")+"\n")
+	#TextArea.insert(END, data.decode()+"\n") # "utf-8" parameter of decode
+	TextArea.insert(END, ''.join("\\x" + format(x, '02x') for x in data) + "\n")
 
 
 def readPort():
 	global conn
 	while conn.connected:
 		while conn.serPort.in_waiting > 0:
-			data = conn.serPort.readline(1) #maybe add ".decode()" look up what is it for
+			data = conn.serPort.read(conn.serPort.in_waiting)
 			handleData(data)
-	conn.serPort.close()
+	conn.serPort.__del__() #conn.serPort.close()
 
 
 
@@ -113,7 +122,7 @@ clearBut = Button(optButFrame, text = "Clear", command = clearTextArea).pack(sid
 Scroll = Scrollbar(mainFrame)
 TextArea = Text(mainFrame, height = 4) #heigth not releveant, for in pack it is said to occupy all the space, however if its not set the buttons below experience some problems
 Scroll.pack(side=RIGHT, fill=Y)
-TextArea.pack(side=LEFT, fill=BOTH)
+TextArea.pack(side=LEFT, fill=BOTH, expand = 1)
 Scroll.config(command=TextArea.yview)
 TextArea.config(yscrollcommand=Scroll.set)
 
