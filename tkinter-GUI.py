@@ -4,8 +4,20 @@ import serial
 import threading
 import time
 
+OUT_STATE = 0
+SCAN_STATE = 1
+DATA_STATE = 2
+
+
 conn = None
 readThread = None
+state = OUT_STATE
+emptyByte = b''
+
+class sensorTag(object):
+	def __init__(self, name, mac):
+		self.name = name
+		self.mac = mac
 
 class connection(object):
 	def __init__(self, connected = False, port = 'COM12', baud = 115200, serPort = None):
@@ -52,37 +64,69 @@ def connectStk():
 def InitLaunchpad():
 	conn.serPort.write(b'\x01\x03\x0C\x00')
 	while conn.serPort.in_waiting <= 0: pass
-	handleData(conn.serPort.read(conn.serPort.in_waiting))
+	handleData(conn.serPort.read(conn.serPort.in_waiting), emptyByte)
 	#time.sleep(0.2)
 	conn.serPort.write(b'\x01\x00\xfe\x26\x08\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00')
 	while conn.serPort.in_waiting <= 0: pass
-	handleData(conn.serPort.read(conn.serPort.in_waiting))
+	handleData(conn.serPort.read(9), emptyByte)
 	while conn.serPort.in_waiting <= 0: pass
 	#time.sleep(0.2)
-	handleData(conn.serPort.read(conn.serPort.in_waiting))
+	handleData(conn.serPort.read(47), emptyByte)
 	#time.sleep(0.2)
 	conn.serPort.write(b'\x01\x31\xFE\x01\x15')
-	time.sleep(0.2)
+	while conn.serPort.in_waiting <= 0: pass
+	handleData(conn.serPort.read(11), emptyByte)
+	#time.sleep(0.2)
 	conn.serPort.write(b'\x01\x31\xFE\x01\x16')
-	time.sleep(0.2)
+	while conn.serPort.in_waiting <= 0: pass
+	handleData(conn.serPort.read(11), emptyByte)
+	#time.sleep(0.2)
 	conn.serPort.write(b'\x01\x31\xFE\x01\x1A')
-	time.sleep(0.2)
+	while conn.serPort.in_waiting <= 0: pass
+	handleData(conn.serPort.read(11), emptyByte)
+	#time.sleep(0.2)
 	conn.serPort.write(b'\x01\x31\xFE\x01\x19')
-	time.sleep(0.2)
+	while conn.serPort.in_waiting <= 0: pass
+	handleData(conn.serPort.read(11), emptyByte)
+	#time.sleep(0.2)
 
 #Thread functions
-def handleData(data):
+def handleData(header, data):
 	print("handling data")
 	#TextArea.insert(END, data.decode()+"\n") # "utf-8" parameter of decode
-	TextArea.insert(END, ''.join("\\x" + format(x, '02x') for x in data) + "\n")
+	TextArea.insert(END,(''.join(" " + format(x, '02x') for x in header) + ''.join(" " + format(x, '02x') for x in data) + "\n"))
 
 
 def readPort():
 	global conn
+	global state
 	while conn.connected:
 		while conn.serPort.in_waiting > 0:
-			data = conn.serPort.read(conn.serPort.in_waiting)
-			handleData(data)
+			header = conn.serPort.read(3)
+			data = conn.serPort.read(header[2])
+			print(type(data))
+			handleData(header, data)
+			if(state == OUT_STATE):
+				#Default
+				if (data[0] == 0x7F and data[1] == 0x06): #Data[0] is actually the 4th byte of the transmission, the first 3 are in "header"
+					TextArea.insert(END,("Scanning process started\n"))
+					state = SCAN_STATE
+
+			elif(state == SCAN_STATE):
+				#Messages from the scan
+				if (data[0] == 0x01 and data[1] == 0x06):
+					TextArea.insert(END,("Scanning process finished\n"))
+					state = OUT_STATE
+				elif 0x54 in data:
+					#Find mac and name
+					i = data.find(0x54)
+				
+			elif(state == DATA_STATE):
+				#Messages from the sensortags
+				pass
+			else:
+				#Default2?? do I need it??
+				pass
 	conn.serPort.__del__() #conn.serPort.close()
 
 
