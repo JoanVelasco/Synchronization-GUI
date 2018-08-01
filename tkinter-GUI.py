@@ -7,17 +7,22 @@ import time
 OUT_STATE = 0
 SCAN_STATE = 1
 DATA_STATE = 2
+CONNECTING_STATE = 3
 
+handleMutex = threading.Semaphore(0)
 
 conn = None
 readThread = None
 state = OUT_STATE
+sensortagList = []
+macList = []
 emptyByte = b''
 
 class sensorTag(object):
 	def __init__(self, name, mac):
 		self.name = name
 		self.mac = mac
+		self.handle = None
 
 class connection(object):
 	def __init__(self, connected = False, port = 'COM12', baud = 115200, serPort = None):
@@ -34,6 +39,7 @@ def connect():
 	conn.serPort = serial.Serial(conn.port, conn.baud, timeout = None, bytesize = serial.EIGHTBITS, parity = serial.PARITY_NONE, stopbits = serial.STOPBITS_ONE, xonxoff = False, rtscts = False, dsrdtr = False)
 	InitLaunchpad()
 	readThread = threading.Thread(target = readPort)
+	readThread.daemon = True
 	print("connected")
 	TextArea.insert(END, "Connected\n")
 	readThread.start()
@@ -44,21 +50,101 @@ def disconnect():
 	conn.connected = False
 	readThread.join()
 	conn = None
+	StkConn.join()
 	print("disconnected")
 	TextArea.insert(END, "Disconnected\n")
+
+def disconnectStk():
+	#Disable sensors
+	for sensor in sensortagList:
+		conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x47\x00\x00')
+		time.sleep(0.2)
+		conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x3f\x00\x47\x00')
+		time.sleep(0.2)
+		conn.serPort.write(b'\x01\x8A\xFD\x04' + sensor.handle + b'\x3f\x00')
+		time.sleep(0.2)
+		conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x2f\x00\x00')
+		time.sleep(0.2)
+		conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x3f\x00\x40\x00')
+		time.sleep(0.2)
+		conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x37\x00\x00')
+		time.sleep(0.2)
+		conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x3f\x00\x00\x00')
+		time.sleep(0.2)
+	#Disconnect sensor tags
+	for sensor in sensortagList:
+		conn.serPort.write(b'\x01\x0A\xFE\x03' + sensor.handle + b'\x13')
+		time.sleep(0.2)
+	state = OUT_STATE
 
 def clearTextArea():
 	print("Text are cleared")
 	TextArea.delete('1.0', END)
 
 def scan():
-	#InitLaunchpad()
 	conn.serPort.write(b'\x01\x04\xFE\x03\x03\x01\x00')
 	print("Scanning")
-	time.sleep(2)
+
+def startConnectStkThread():
+	StkConn = threading.Thread(target = connectStk)
+	StkConn.start()
 
 def connectStk():
-	print("Connecting to Sensor Tag")
+	global state
+	if state == OUT_STATE and len(sensortagList):
+		print("Connecting to Sensor Tag")
+		state = CONNECTING_STATE
+		for sensor in sensortagList:
+			#connect to sensor tag
+			conn.serPort.write(b'\x01\x09\xFE\x09\x00\x00\x00' + sensor.mac)
+			handleMutex.acquire()
+			#Activate notifications and configure sensors
+			conn.serPort.write(b'\x01\x8A\xFD\x04' + sensor.handle + b'\x11\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x8A\xFD\x04' + sensor.handle + b'\x1E\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x1F\x00\x01\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x53\x00\x02')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x8A\xFD\x04' + sensor.handle + b'\x51\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x51\x00\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x53\x00\x01')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x2d\x00\x01\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x35\x00\x01\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x45\x00\x01\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x3d\x00\x01\x00')
+			time.sleep(0.1)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x4d\x00\x01\x00')
+			time.sleep(0.1)
+		#Enable sensors
+		for sensor in sensortagList:
+			conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x47\x00\x01')
+			time.sleep(0.2)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x3f\x00\x38\x02')
+			time.sleep(0.2)
+			conn.serPort.write(b'\x01\x8A\xFD\x04' + sensor.handle + b'\x3f\x00')
+			time.sleep(0.2)
+			conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x2f\x00\x01')
+			time.sleep(0.2)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x3f\x00\x3f\x02')
+			time.sleep(0.2)
+			conn.serPort.write(b'\x01\x92\xFD\x05' + sensor.handle + b'\x37\x00\x01')
+			time.sleep(0.2)
+			conn.serPort.write(b'\x01\x92\xFD\x06' + sensor.handle + b'\x3f\x00\x7f\x02')
+			time.sleep(0.2)
+		state = DATA_STATE
+			
+
+
+	else :
+		print("Error: No Sensortags found, or already connected")
 
 
 def InitLaunchpad():
@@ -100,6 +186,8 @@ def handleData(header, data):
 def readPort():
 	global conn
 	global state
+	global macList
+	global sensortagList
 	while conn.connected:
 		while conn.serPort.in_waiting > 0:
 			header = conn.serPort.read(3)
@@ -110,6 +198,8 @@ def readPort():
 				#Default
 				if (data[0] == 0x7F and data[1] == 0x06): #Data[0] is actually the 4th byte of the transmission, the first 3 are in "header"
 					TextArea.insert(END,("Scanning process started\n"))
+					macList = []
+					sensortagList = []
 					state = SCAN_STATE
 
 			elif(state == SCAN_STATE):
@@ -119,7 +209,28 @@ def readPort():
 					state = OUT_STATE
 				elif 0x54 in data:
 					#Find mac and name
+					#TextArea.insert(END, data.decode()+"\n")
 					i = data.find(0x54)
+					mac = data[i-5:i+1]
+					if mac not in macList:
+						macList.append(mac)
+						sensor = sensorTag(name = "SensorTag"+str(len(sensortagList)), mac = mac)
+						sensortagList.append(sensor)
+
+					handleData(mac, emptyByte)
+
+			elif state == CONNECTING_STATE:
+				if 0x54 in data:
+					i = data.find(0x54)
+					print(i)
+					mac = data[i-5:i+1]
+					print(mac)
+					index = macList.index(mac)
+					print(index)
+					sensortagList[index].handle = data[i+1:i+3]
+					print(sensortagList[index].handle)
+					handleMutex.release()
+					
 				
 			elif(state == DATA_STATE):
 				#Messages from the sensortags
@@ -158,7 +269,7 @@ exitBut = Button(buttonsFrame, text = "Exit", command = root.destroy).pack(side 
 connectBut = Button(buttonsFrame, text = "Connect", command = connect).pack(side = LEFT, ipadx = 20)
 disconnectBut = Button(buttonsFrame, text = "Disconnect", command = disconnect).pack(side = LEFT, ipadx = 20, padx = 30)
 scanBut = Button(optButFrame, text = "Scan", command = scan).pack(ipadx = 20)
-connectStkBut = Button(optButFrame, text = "Connect", command = connectStk).pack(ipadx = 20)
+connectStkBut = Button(optButFrame, text = "Connect", command = startConnectStkThread).pack(ipadx = 20)
 clearBut = Button(optButFrame, text = "Clear", command = clearTextArea).pack(side = BOTTOM, ipadx = 20)
 
 
