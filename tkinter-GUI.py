@@ -1,3 +1,9 @@
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.figure import Figure
+#import matplotlib.animation as animation
+from matplotlib import style
 from tkinter import *
 from tkinter import font
 import serial
@@ -8,6 +14,7 @@ OUT_STATE = 0
 SCAN_STATE = 1
 DATA_STATE = 2
 CONNECTING_STATE = 3
+style.use("ggplot")
 
 handleMutex = threading.Semaphore(0)
 
@@ -17,6 +24,16 @@ state = OUT_STATE
 sensortagList = []
 macList = []
 emptyByte = b''
+
+figure = Figure(figsize=(5,5), dpi=100)
+graphic1 = figure.add_subplot(311)
+graphic1.plot([1,2,3,4,5,6,7,8], [1,6,1,3,8,9,3,5])
+
+graphic2 = figure.add_subplot(312)
+graphic2.plot([1,2,3,4,5,6,7,8], [2,6,1,3,8,9,3,5])
+
+graphic3 = figure.add_subplot(313)
+graphic3.plot([1,2,3,4,5,6,7,8], [3,6,1,3,8,9,3,5])
 
 class sensorTag(object):
 	def __init__(self, name, mac):
@@ -181,6 +198,7 @@ def handleData(header, data):
 	print("handling data")
 	#TextArea.insert(END, data.decode()+"\n") # "utf-8" parameter of decode
 	TextArea.insert(END,(''.join(" " + format(x, '02x') for x in header) + ''.join(" " + format(x, '02x') for x in data) + "\n"))
+	TextArea.see(END)
 
 
 def readPort():
@@ -256,6 +274,9 @@ titleFrame.pack(fill = X, pady = 5)
 mainFrame = Frame(windowFrame, bg = "red")
 mainFrame.pack(fill = BOTH, expand = 1, pady = 5)
 
+graphicsFrame = Frame(mainFrame, bg = "purple")
+graphicsFrame.pack(fill = BOTH, expand = 1, side = LEFT)
+
 optButFrame = Frame(mainFrame, bg = "blue")
 optButFrame.pack(fill = Y, side = RIGHT, padx = 5)
 
@@ -283,5 +304,12 @@ Scroll.config(command=TextArea.yview)
 TextArea.config(yscrollcommand=Scroll.set)
 
 
-root.geometry("800x500+20+25")
+#Live graphics
+canvas = FigureCanvasTkAgg(figure, graphicsFrame)
+canvas.draw()
+canvas.get_tk_widget().pack(side=TOP, fill= BOTH, expand = 1)
+
+
+
+root.geometry("800x600+20+25")
 root.mainloop()
